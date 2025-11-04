@@ -115,7 +115,7 @@ def main():
         pretty_diff = "\n".join(diff_lines[:60]) if diff_lines else "(Inhalt geändert)"
 
         text = build_message(TARGET_URL, pretty_diff)
-        send_ntfy("M2 Ergebnis-Check", text)
+        send_ntfy(os.getenv("NOTIFY_TITLE", "Ergebnis M2"), text)
 
         state["last_hash"] = new_hash
         state["last_excerpt"] = "\n".join(content.splitlines()[:400])
