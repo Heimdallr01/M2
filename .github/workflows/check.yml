@@ -1,0 +1,76 @@
+name: Website Monitor (5-min bis 2025-11-15)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: website-monitor
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Check cutoff date (Europe/Berlin)
+        id: cutoff
+        run: |
+          CUTOFF="2025-11-15 23:59:59"
+          NOW_EUROPE=$(TZ=Europe/Berlin date +%s)
+          CUTOFF_EUROPE=$(TZ=Europe/Berlin date -d "$CUTOFF" +%s)
+          if [ "$NOW_EUROPE" -le "$CUTOFF_EUROPE" ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        if: steps.cutoff.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        if: steps.cutoff.outputs.run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run monitor
+        if: steps.cutoff.outputs.run == 'true'
+        env:
+          TARGET_URL: ${{ vars.TARGET_URL }}
+          CSS_SELECTOR: ${{ vars.CS_SELECTOR }}
+          IGNORE_REGEX: ${{ vars.IGNORE_REGEX }}
+          USER_AGENT: ${{ vars.USER_AGENT }}
+          NTFY_SERVER: ${{ vars.NTFY_SERVER }}
+          NTFY_TOPIC: ${{ vars.NTFY_TOPIC }}
+          NOTIFY_TEMPLATE: ${{ vars.NOTIFY_TEMPLATE }}
+          NOTIFY_PREFIX: ${{ vars.NOTIFY_PREFIX }}
+        run: python monitor.py
+
+      - name: Commit state if changed
+        if: steps.cutoff.outputs.run == 'true'
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add state.json
+            git commit -m "chore: update state ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
+            git push
+          else
+            echo "No changes in state.json; nothing to commit."
+          fi
+
+      - name: Stop after cutoff (no-op)
+        if: steps.cutoff.outputs.run != 'true'
+        run: echo "Cutoff passed; skipping run."
