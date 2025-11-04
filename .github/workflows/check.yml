@@ -49,7 +49,7 @@ jobs:
         if: steps.cutoff.outputs.run == 'true'
         env:
           TARGET_URL: ${{ vars.TARGET_URL }}
-          CSS_SELECTOR: ${{ vars.CS_SELECTOR }}
+          CSS_SELECTOR: ${{ vars.CSS_SELECTOR }}
           IGNORE_REGEX: ${{ vars.IGNORE_REGEX }}
           USER_AGENT: ${{ vars.USER_AGENT }}
           NTFY_SERVER: ${{ vars.NTFY_SERVER }}
